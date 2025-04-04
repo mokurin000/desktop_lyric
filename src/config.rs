@@ -81,18 +81,22 @@ impl Config {
             .map(|c| c.join("desktop_lyric").join("config.yaml"))
             .unwrap_or(PathBuf::from("./config.yaml"));
 
-        (
-            if !path.exists() {
-                std::fs::create_dir_all(&path.parent().unwrap()).unwrap();
-                std::fs::write(&path, DEFAULT_CONFIG.as_bytes()).unwrap();
-                info!("Using default config file");
-                serde_yaml::from_str(DEFAULT_CONFIG).unwrap()
-            } else {
-                info!("Using config file: {}", path.to_string_lossy());
-                serde_yaml::from_str(read_to_string(&path).unwrap().as_str()).unwrap()
-            },
-            path,
-        )
+        let config;
+
+        if let Some(_config) = read_to_string(&path)
+            .ok()
+            .and_then(|s| serde_yaml::from_str::<'_, Config>(&*s).ok())
+        {
+            info!("Using config file: {}", path.to_string_lossy());
+            config = _config;
+        } else {
+            info!("Falling back to default config");
+            config = Config::default();
+        }
+
+        std::fs::create_dir_all(&path.parent().unwrap()).unwrap();
+        let _ = std::fs::write(&path, serde_yaml::to_string(&config).unwrap().as_str());
+        (config, path)
     }
 }
 
